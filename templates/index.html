@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>오늘 따라</title>
+    <link rel="stylesheet" href="/static/css/style.css" />
+    <link rel="stylesheet" href="/static/css/map.css" />
+    <link rel="stylesheet" href="/static/css/popup.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <link
+      href="https://fonts.googleapis.com/icon?family=Material+Icons"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <!-- Screen 1: 지역 선택 -->
+    <div class="screen" id="screen1">
+      <div class="container">
+        <div class="card">
+          <h2>지금 어디?</h2>
+          <div
+            id="location-status"
+            style="margin-bottom: 1rem; font-size: 0.9rem; color: #666"
+          >
+            위치를 자동으로 감지하는 중...
+          </div>
+          <select id="province">
+            <option value="">광역시/도 선택</option>
+            <option value="서울특별시">서울특별시</option>
+            <option value="부산광역시">부산광역시</option>
+            <option value="강원도">강원도</option>
+            <option value="대구광역시">대구광역시</option>
+            <option value="인천광역시">인천광역시</option>
+            <option value="광주광역시">광주광역시</option>
+            <option value="대전광역시">대전광역시</option>
+            <option value="울산광역시">울산광역시</option>
+            <option value="세종특별자치시">세종특별자치시</option>
+            <option value="경기도">경기도</option>
+            <option value="충청북도">충청북도</option>
+            <option value="충청남도">충청남도</option>
+            <option value="전라북도">전라북도</option>
+            <option value="전라남도">전라남도</option>
+            <option value="경상북도">경상북도</option>
+            <option value="경상남도">경상남도</option>
+            <option value="제주특별자치도">제주특별자치도</option>
+          </select>
+          <select id="city">
+            <option value="">시/군/구 선택</option>
+          </select>
+          <button onclick="saveLocation()">확인</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Screen 2: 투표 -->
+    <div class="screen hidden" id="screen2">
+      <!-- <header>체감 온도 투표</header> -->
+      <div class="container">
+        <div class="card">
+          <h2 id="today">오늘 따라...</h2>
+          <div class="vote-options">
+            <button id="btnHot" onclick="vote('hot', this)">덥다</button>
+            <button id="btnNormal" onclick="vote('normal', this)">보통</button>
+            <button id="btnCold" onclick="vote('cold', this)">춥다</button>
+          </div>
+
+          <div class="detail-vote" style="display: none">
+            <h3>얼마나?</h3>
+            <select id="detailSelect"></select>
+            <button onclick="saveDetail()">확인</button>
+          </div>
+          <div id="vote-result"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Screen 3: 결과 및 지도 -->
+    <div class="screen hidden" id="screen3">
+      <div class="map-container">
+        <svg id="korea-map"></svg>
+        <!-- <div style="position: fixed; top: 20px; right: 20px; z-index: 1000">
+          <button
+            onclick="generateTestData()"
+            style="
+              margin: 5px;
+              padding: 10px;
+              background: #ff6b6b;
+              color: white;
+              border: none;
+              border-radius: 5px;
+            "
+          >
+            임의 데이터 생성
+          </button>
+          <button
+            onclick="refreshMapData()"
+            style="
+              margin: 5px;
+              padding: 10px;
+              background: #4ecdc4;
+              color: white;
+              border: none;
+              border-radius: 5px;
+            "
+          >
+            지도 데이터 새로고침
+          </button>
+        </div> -->
+      </div>
+      <div class="ranking-icon" onclick="openRankingPopup()">🏆</div>
+      <div class="quiz-icon" onclick="openQuizPopup()">🎯</div>
+      <div class="recommend-icon" onclick="openRecommendPopup()">🍽️</div>
+    </div>
+
+    <!-- 광역시/도 통계 팝업 -->
+    <div id="provincePopup" class="popup-modal">
+      <h3 id="province-title">지역명</h3>
+      <div class="combined-bar-container" id="combined-bar-container">
+        <!-- 동적으로 생성될 바 영역 -->
+      </div>
+      <div class="stats-legend">
+        <div class="legend-item">
+          <div class="legend-dot hot"></div>
+          <span id="hot-count">0</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot normal"></div>
+          <span id="normal-count">0</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot cold"></div>
+          <span id="cold-count">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 시/군/구 통계 팝업 -->
+    <div id="tempPopup" class="tp-overlay" aria-hidden="true">
+      <div
+        class="tp-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="tp-title"
+      >
+        <button class="tp-close" aria-label="닫기" onclick="closeTempPopup()">
+          ×
+        </button>
+        <div class="tp-grid">
+          <!-- 원그래프 섹션 -->
+          <section class="tp-right">
+            <canvas id="tp-canvas" width="250" height="285"></canvas>
+            <div id="tp-center-text" class="tp-center-text">--°C</div>
+          </section>
+
+          <!-- 지역명 섹션 -->
+          <section class="tp-left">
+            <h2 id="tp-title" class="tp-city">도시명</h2>
+          </section>
+
+          <!-- 현재 기온 섹션 -->
+          <section class="tp-temp-section">
+            <p id="tp-desc" class="tp-desc">현재 기온</p>
+            <div class="tp-temp">
+              <span id="tp-temp-value">--</span><span class="tp-unit">°C</span>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+    <!-- 랭킹 팝업 -->
+    <div id="rankingOverlay" class="ranking-overlay" aria-hidden="true">
+      <div
+        id="rankingPopup"
+        class="popup-modal ranking-popup"
+        aria-modal="true"
+      >
+        <button
+          class="ranking-close"
+          aria-label="닫기"
+          onclick="closeRankingPopup()"
+        >
+          ×
+        </button>
+        <div class="card">
+          <h2 id="ranking-main-title"></h2>
+          <div class="ranking-container">
+            <div class="ranking-box">
+              <h3>📊 투표수 기준 Top 5</h3>
+              <ul id="voteRanking"></ul>
+            </div>
+            <div class="ranking-box">
+              <h3>🌡️ 실제온도 기준 Top 5</h3>
+              <ul id="tempRanking"></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 퀴즈 팝업 -->
+    <div id="quizOverlay" class="quiz-overlay" aria-hidden="true">
+      <div id="quizPopup" class="popup-modal quiz-popup" aria-modal="true">
+        <button
+          class="ranking-close"
+          aria-label="닫기"
+          onclick="closeQuizPopup()"
+        >
+          ×
+        </button>
+        <div class="card">
+          <h2 id="quiz-question">체감 온도 맞추기</h2>
+          <input
+            type="number"
+            id="userAnswer"
+            placeholder="온도를 입력하세요 (°C)"
+            style="
+              width: 70%;
+              padding: 15px;
+              font-size: 18px;
+              margin: 20px 0;
+              border-radius: 8px;
+              border: 1px solid #ccc;
+            "
+          />
+          <button
+            id="quiz-btn"
+            onclick="checkQuizAnswer()"
+            style="
+              display: block;
+              margin: 0 auto;
+              padding: 15px 30px;
+              font-size: 18px;
+              background-color: #4cafef;
+              color: white;
+              border: none;
+              border-radius: 8px;
+              cursor: pointer;
+            "
+          >
+            확인하기
+          </button>
+          <div
+            id="quiz-result"
+            style="margin-top: 20px; font-size: 18px; text-align: center"
+          ></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 추천 팝업 -->
+    <div id="recommendOverlay" class="recommend-overlay" aria-hidden="true">
+      <div
+        id="recommendPopup"
+        class="popup-modal recommend-popup"
+        aria-modal="true"
+      >
+        <button
+          class="ranking-close"
+          aria-label="닫기"
+          onclick="closeRecommendPopup()"
+        >
+          ×
+        </button>
+        <div class="card">
+          <h2>오늘의 추천</h2>
+          <div id="clothesResult" class="recommend-list"></div>
+          <div id="foodResult" class="recommend-list"></div>
+          <button id="newRecommendationBtn" class="small-btn">
+            🔄 다른 추천 받기
+          </button>
+        </div>
+      </div>
+    </div>
+    <script>
+      // 전역 변수
+      const provinceSelect = document.getElementById("province");
+      const citySelect = document.getElementById("city");
+
+      // 화면 전환 함수
+      function showScreen(screenNumber) {
+        document.querySelectorAll(".screen").forEach((screen) => {
+          screen.classList.add("hidden");
+        });
+        document
+          .getElementById(`screen${screenNumber}`)
+          .classList.remove("hidden");
+      }
+
+      // 도 선택 시 시 목록 갱신
+      provinceSelect.addEventListener("change", () => {
+        const selectedProvince = provinceSelect.value;
+        fetch(`/get_data?province=${selectedProvince}`)
+          .then((res) => res.json())
+          .then((data) => {
+            citySelect.innerHTML = '<option value="">시/군/구 선택</option>';
+            data.forEach((city) => {
+              const option = document.createElement("option");
+              option.value = city;
+              option.textContent = city;
+              citySelect.appendChild(option);
+            });
+          })
+          .catch((err) => console.error(err));
+      });
+
+      // 지역 저장 및 다음 화면으로 이동
+      function saveLocation() {
+        const province = provinceSelect.value;
+        const city = citySelect.value;
+        if (province && city) {
+          localStorage.setItem("do", province);
+          localStorage.setItem("si", city);
+
+          window.currentRegion = { province, city };
+
+          showScreen(2);
+        } else {
+          alert("지역을 선택해주세요!");
+        }
+      }
+
+      // 쿠키에서 banUntil 꺼내기
+      function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(";").shift();
+      }
+
+      // 페이지 로드 시 초기화
+      window.addEventListener("load", function () {
+        const banUntilCookie = getCookie("banUntil");
+        if (banUntilCookie) {
+          const banUntilDate = new Date(banUntilCookie);
+          if (banUntilDate > new Date()) {
+            // 이미 투표한 사용자는 바로 지도 화면으로
+            showScreen(3);
+            if (typeof loadKoreaMap === "function") {
+              loadKoreaMap("provinces");
+            }
+            return;
+          }
+        }
+
+        console.log("=== 페이지 로드 완료 ===");
+        showScreen(1); // 첫 번째 화면 표시
+
+        // DOM이 완전히 준비된 후 위치 감지 시작
+        setTimeout(() => {
+          loadUserLocation(); // 자동 위치 감지
+        }, 500);
+      });
+
+      // 자동 위치 감지 함수
+      function loadUserLocation() {
+        const statusDiv = document.getElementById("location-status");
+
+        // 먼저 광역시/도 select가 제대로 로드되었는지 확인
+        const provinceSelect = document.getElementById("province");
+        console.log("광역시/도 옵션 수:", provinceSelect.options.length);
+
+        // 옵션이 없으면 잠시 후 다시 시도
+        if (provinceSelect.options.length <= 1) {
+          console.log("광역시/도 옵션이 아직 로드되지 않음, 1초 후 재시도");
+          setTimeout(loadUserLocation, 1000);
+          return;
+        }
+
+        fetch("/get_Location")
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.success) {
+              console.log("감지된 위치:", data.province, data.city);
+              statusDiv.textContent = `감지된 위치: ${data.province} ${data.city}`;
+              statusDiv.style.color = "#4caf50";
+
+              // 광역시/도 자동 선택
+              const matchedProvince = findMatchingProvince(data.province);
+
+              console.log("매칭 결과:", matchedProvince);
+
+              if (matchedProvince) {
+                provinceSelect.value = matchedProvince;
+
+                // 선택이 제대로 되었는지 확인
+                console.log("선택된 값:", provinceSelect.value);
+
+                // 시/군/구 목록 로드
+                fetch(`/get_data?province=${matchedProvince}`)
+                  .then((res) => res.json())
+                  .then((cities) => {
+                    const citySelect = document.getElementById("city");
+                    citySelect.innerHTML =
+                      '<option value="">시/군/구 선택</option>';
+
+                    cities.forEach((city) => {
+                      const option = document.createElement("option");
+                      option.value = city;
+                      option.textContent = city;
+                      citySelect.appendChild(option);
+                    });
+
+                    // 시/군/구 자동 선택
+                    const matchedCity = findMatchingCity(cities, data.city);
+                    if (matchedCity) {
+                      citySelect.value = matchedCity;
+                      statusDiv.textContent = `위치 설정 완료: ${matchedProvince} ${matchedCity}`;
+                      statusDiv.style.color = "#4caf50";
+                    } else {
+                      statusDiv.textContent = `${data.province} 감지됨. 시/군/구를 직접 선택해주세요.`;
+                      statusDiv.style.color = "#ff9800";
+                    }
+                  })
+                  .catch((err) => {
+                    console.error("시/군/구 목록 로드 실패:", err);
+                    statusDiv.textContent =
+                      "시/군/구 목록 로드에 실패했습니다.";
+                    statusDiv.style.color = "#ff6b6b";
+                  });
+              } else {
+                statusDiv.textContent = `${data.province} 지역을 찾을 수 없습니다. 직접 선택해주세요.`;
+                statusDiv.style.color = "#ff9800";
+              }
+            } else {
+              statusDiv.textContent =
+                "위치 감지에 실패했습니다. 직접 선택해주세요.";
+              statusDiv.style.color = "#ff6b6b";
+            }
+          })
+          .catch((error) => {
+            statusDiv.textContent =
+              "위치 감지에 실패했습니다. 직접 선택해주세요.";
+            statusDiv.style.color = "#ff6b6b";
+            console.error("위치 API 호출 실패:", error);
+          });
+      }
+
+      // 광역시/도 매칭 함수
+      function findMatchingProvince(detectedProvince) {
+        console.log("감지된 광역시/도:", detectedProvince);
+
+        const provinceSelect = document.getElementById("province");
+        const options = Array.from(provinceSelect.options);
+
+        console.log("사용 가능한 광역시/도 옵션들:");
+        options.forEach((option) => {
+          if (option.value) console.log("-", option.value);
+        });
+
+        // 1. 정확히 일치하는 경우
+        for (const option of options) {
+          if (option.value === detectedProvince) {
+            console.log("정확 매칭:", option.value);
+            return option.value;
+          }
+        }
+
+        // 2. 부분 일치하는 경우
+        const provinceMapping = {
+          서울: "서울특별시",
+          부산: "부산광역시",
+          대구: "대구광역시",
+          인천: "인천광역시",
+          광주: "광주광역시",
+          대전: "대전광역시",
+          울산: "울산광역시",
+          세종: "세종특별자치시",
+          경기: "경기도",
+          강원: "강원도",
+          충북: "충청북도",
+          충남: "충청남도",
+          전북: "전라북도",
+          전남: "전라남도",
+          경북: "경상북도",
+          경남: "경상남도",
+          제주: "제주특별자치도",
+        };
+
+        for (const [key, value] of Object.entries(provinceMapping)) {
+          if (detectedProvince.includes(key)) {
+            // 매핑된 값이 실제 옵션에 있는지 확인
+            for (const option of options) {
+              if (option.value === value) {
+                console.log("매핑 매칭:", key, "->", value);
+                return value;
+              }
+            }
+          }
+        }
+
+        // 3. select 옵션에서 직접 검색
+        for (const option of options) {
+          if (
+            option.value &&
+            (option.value.includes(detectedProvince) ||
+              detectedProvince.includes(
+                option.value.replace(/특별시|광역시|특별자치시|도/g, "")
+              ))
+          ) {
+            console.log("옵션 매칭:", option.value);
+            return option.value;
+          }
+        }
+
+        console.log("매칭 실패");
+        return null;
+      }
+
+      // 시/군/구 매칭 함수
+      function findMatchingCity(availableCities, detectedCity) {
+        console.log("감지된 시/군/구:", detectedCity);
+        console.log("사용 가능한 시/군/구:", availableCities);
+
+        // 정확히 일치하는 경우
+        if (availableCities.includes(detectedCity)) {
+          console.log("정확 매칭:", detectedCity);
+          return detectedCity;
+        }
+
+        // 부분 일치하는 경우
+        for (const city of availableCities) {
+          if (
+            city.includes(detectedCity) ||
+            detectedCity.includes(city.replace(/시|군|구/g, ""))
+          ) {
+            console.log("부분 매칭:", city);
+            return city;
+          }
+        }
+
+        console.log("시/군/구 매칭 실패");
+        return null;
+      }
+      function generateTestData() {
+        fetch("/generate_test_data")
+          .then((response) => response.json())
+          .then((data) => {
+            alert(data.message);
+            // 데이터 생성 후 자동으로 지도 새로고침
+            refreshMapData();
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+            alert("데이터 생성 중 오류가 발생했습니다.");
+          });
+      }
+
+      // 지도 데이터 새로고침 함수
+      function refreshMapData() {
+        if (typeof loadWeatherData === "function") {
+          loadWeatherData();
+        } else {
+          console.error("loadWeatherData 함수를 찾을 수 없습니다.");
+        }
+      }
+    </script>
+    <script src="/static/js/vote.js"></script>
+    <script src="/static/js/map.js"></script>
+    <script src="/static/js/popup.js"></script>
+    <script src="/static/js/add-ons.js"></script>
+  </body>
+</html>
